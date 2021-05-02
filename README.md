@@ -1,0 +1,1 @@
+OIDC forwardauth for traefik V2
