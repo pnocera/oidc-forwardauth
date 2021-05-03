@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
-	"github.com/pnocera/oidc-forwardauth/internal/provider"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -188,7 +188,7 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 	}
 }
 
-func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider) {
+func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p *OIDC) {
 	// Error indicates no cookie, generate nonce
 	nonce, err := Nonce()
 	if err != nil {

@@ -1,4 +1,4 @@
-package provider
+package tfa
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 // Providers contains all the implemented providers
 type Providers struct {
-	OIDC OIDC `group:"OIDC Provider" namespace:"oidc" env-namespace:"OIDC"`
+	OIDC OIDC
 }
 
 // Provider is used to authenticate users

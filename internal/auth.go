@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pnocera/oidc-forwardauth/internal/provider"
 )
 
 // Request Validation
@@ -77,10 +75,10 @@ func returnUrl(r *http.Request) string {
 func redirectUri(r *http.Request, config *Config) string {
 	if use, _ := useAuthDomain(r, config); use {
 		proto := r.Header.Get("X-Forwarded-Proto")
-		return fmt.Sprintf("%s://%s%s", proto, config.AuthHost, config.Path)
+		return fmt.Sprintf("%s://%s%s", proto, config.AuthHost(), config.Path())
 	}
 
-	return fmt.Sprintf("%s%s", redirectBase(r), config.Path)
+	return fmt.Sprintf("%s%s", redirectBase(r), config.Path())
 }
 
 // Should we use auth host + what it is
@@ -194,7 +192,7 @@ func ValidateCSRFCookie(c *http.Cookie, state string) (valid bool, provider stri
 }
 
 // MakeState generates a state value
-func MakeState(r *http.Request, p provider.Provider, nonce string) string {
+func MakeState(r *http.Request, p *OIDC, nonce string) string {
 	return fmt.Sprintf("%s:%s:%s", nonce, p.Name(), returnUrl(r))
 }
 

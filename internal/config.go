@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pnocera/oidc-forwardauth/internal/provider"
 	"github.com/spf13/viper"
 )
 
@@ -13,7 +12,7 @@ import (
 // Config holds the runtime application config
 type Config struct {
 	v         *viper.Viper
-	Providers provider.Providers
+	Providers Providers
 }
 
 // NewConfig creates a new global config, parsed from command arguments
@@ -99,8 +98,10 @@ func (c *Config) Lifetime() time.Duration {
 
 }
 
-func (c *Config) Provider() *provider.OIDC {
-	return &c.Providers.OIDC
+func (c *Config) Provider() *OIDC {
+	var oidc = &c.Providers.OIDC
+	oidc.Setup(c)
+	return oidc
 }
 
 func (c *Config) LogoutRedirect() string {

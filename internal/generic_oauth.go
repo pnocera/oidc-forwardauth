@@ -1,4 +1,4 @@
-package provider
+package tfa
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package provider
+package tfa
 
 import (
 	"context"
@@ -10,10 +10,6 @@ import (
 
 // OIDC provider
 type OIDC struct {
-	IssuerURL    string `long:"issuer-url" env:"ISSUER_URL" description:"Issuer URL"`
-	ClientID     string `long:"client-id" env:"CLIENT_ID" description:"Client ID"`
-	ClientSecret string `long:"client-secret" env:"CLIENT_SECRET" description:"Client Secret" json:"-"`
-
 	OAuthProvider
 
 	provider *oidc.Provider
@@ -26,9 +22,9 @@ func (o *OIDC) Name() string {
 }
 
 // Setup performs validation and setup
-func (o *OIDC) Setup() error {
+func (o *OIDC) Setup(config *Config) error {
 	// Check parms
-	if o.IssuerURL == "" || o.ClientID == "" || o.ClientSecret == "" {
+	if config.IssuerUrl() == "" || config.ClientID() == "" || config.ClientSecret() == "" {
 		return errors.New("providers.oidc.issuer-url, providers.oidc.client-id, providers.oidc.client-secret must be set")
 	}
 
@@ -36,15 +32,15 @@ func (o *OIDC) Setup() error {
 	o.ctx = context.Background()
 
 	// Try to initiate provider
-	o.provider, err = oidc.NewProvider(o.ctx, o.IssuerURL)
+	o.provider, err = oidc.NewProvider(o.ctx, config.IssuerUrl())
 	if err != nil {
 		return err
 	}
 
 	// Create oauth2 config
 	o.Config = &oauth2.Config{
-		ClientID:     o.ClientID,
-		ClientSecret: o.ClientSecret,
+		ClientID:     config.ClientID(),
+		ClientSecret: config.ClientSecret(),
 		Endpoint:     o.provider.Endpoint(),
 		//openid profile offline_access https://docrender.onmicrosoft.com/docrender/demo.read
 		// "openid" is a required scope for OpenID Connect flows.
@@ -53,7 +49,7 @@ func (o *OIDC) Setup() error {
 
 	// Create OIDC verifier
 	o.verifier = o.provider.Verifier(&oidc.Config{
-		ClientID: o.ClientID,
+		ClientID: config.ClientID(),
 	})
 
 	return nil
