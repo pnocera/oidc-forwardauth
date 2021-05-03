@@ -10,22 +10,19 @@ import (
 // Main
 func main() {
 	// Parse options
-	config := internal.NewGlobalConfig()
+	config := internal.NewConfig()
 
 	// Setup logger
-	log := internal.NewDefaultLogger()
-
-	// Perform config validation
-	config.Validate()
+	log := internal.NewDefaultLogger(config)
 
 	// Build server
-	server := internal.NewServer()
+	server := internal.NewServer(config)
 
 	// Attach router to default server
 	http.HandleFunc("/", server.RootHandler)
 
 	// Start
 	log.WithField("config", config).Debug("Starting with config")
-	log.Infof("Listening on :%d", config.Port)
-	log.Info(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil))
+	log.Infof("Listening on :%d", config.Port())
+	log.Info(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), nil))
 }

@@ -12,11 +12,14 @@ import (
 // Server contains router and handler methods
 type Server struct {
 	router *mux.Router
+	config *Config
 }
 
 // NewServer creates a new server object and builds router
-func NewServer() *Server {
-	s := &Server{}
+func NewServer(config *Config) *Server {
+	s := &Server{
+		config: config,
+	}
 	s.buildRoutes()
 	return s
 }
@@ -26,17 +29,13 @@ func (s *Server) buildRoutes() {
 	s.router = mux.NewRouter()
 
 	// Add callback handler
-	s.router.Handle(config.Path, s.AuthCallbackHandler())
+	s.router.Handle(s.config.Path(), s.AuthCallbackHandler())
 
 	// Add logout handler
-	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
+	s.router.Handle(s.config.Path()+"/logout", s.LogoutHandler())
 
-	// Add a default handler
-	if config.DefaultAction == "allow" {
-		s.router.NewRoute().Handler(s.AllowHandler("default"))
-	} else {
-		s.router.NewRoute().Handler(s.AuthHandler(config.DefaultProvider, "default"))
-	}
+	s.router.NewRoute().Handler(s.AuthHandler())
+
 }
 
 // RootHandler Overwrites the request method, host and URL with those from the
@@ -60,22 +59,22 @@ func (s *Server) AllowHandler(rule string) http.HandlerFunc {
 }
 
 // AuthHandler Authenticates requests
-func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
-	p, _ := config.GetConfiguredProvider(providerName)
+func (s *Server) AuthHandler() http.HandlerFunc {
+	p := s.config.Provider()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Logging setup
-		logger := s.logger(r, "Auth", rule, "Authenticating request")
+		logger := s.logger(r, "Auth", "", "Authenticating request")
 
 		// Get auth cookie
-		c, err := r.Cookie(config.CookieName)
+		c, err := r.Cookie(s.config.CookieName())
 		if err != nil {
 			s.authRedirect(logger, w, r, p)
 			return
 		}
 		logger.WithField("cookie", c.Value).Warn("Cookie cookie")
 		// Validate cookie
-		email, err := ValidateCookie(r, c)
+		email, err := ValidateCookie(r, c, s.config)
 		if err != nil {
 			if err.Error() == "Cookie has expired" {
 				logger.Info("Cookie has expired")
@@ -88,12 +87,12 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		}
 
 		// Validate user
-		valid := ValidateEmail(email, rule)
-		if !valid {
-			logger.WithField("email", email).Warn("Invalid email")
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
-			return
-		}
+		// valid := ValidateEmail(email, rule)
+		// if !valid {
+		// 	logger.WithField("email", email).Warn("Invalid email")
+		// 	http.Error(w, "Not authorized", http.StatusUnauthorized)
+		// 	return
+		// }
 
 		// Valid request
 		logger.Debug("Allowing valid request")
@@ -119,7 +118,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		}
 
 		// Check for CSRF cookie
-		c, err := FindCSRFCookie(r, state)
+		c, err := FindCSRFCookie(r, state, s.config)
 		if err != nil {
 			logger.Info("Missing csrf cookie")
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -138,22 +137,13 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		}
 
 		// Get provider
-		p, err := config.GetConfiguredProvider(providerName)
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"error":       err,
-				"csrf_cookie": c,
-				"provider":    providerName,
-			}).Warn("Invalid provider in csrf cookie")
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
-			return
-		}
+		p := s.config.Provider()
 
 		// Clear CSRF cookie
-		http.SetCookie(w, ClearCSRFCookie(r, c))
+		http.SetCookie(w, ClearCSRFCookie(r, c, s.config))
 
 		// Exchange code for token
-		token, err := p.ExchangeCode(redirectUri(r), r.URL.Query().Get("code"))
+		token, err := p.ExchangeCode(redirectUri(r, s.config), r.URL.Query().Get("code"))
 		if err != nil {
 			logger.WithField("error", err).Error("Code exchange failed with provider")
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
@@ -169,7 +159,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		}
 
 		// Generate cookie
-		http.SetCookie(w, MakeCookie(r, user.Email))
+		http.SetCookie(w, MakeCookie(r, user.Email, s.config))
 		logger.WithFields(logrus.Fields{
 			"provider": providerName,
 			"redirect": redirect,
@@ -185,13 +175,13 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 func (s *Server) LogoutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Clear cookie
-		http.SetCookie(w, ClearCookie(r))
+		http.SetCookie(w, ClearCookie(r, s.config))
 
 		logger := s.logger(r, "Logout", "default", "Handling logout")
 		logger.Info("Logged out user")
 
-		if config.LogoutRedirect != "" {
-			http.Redirect(w, r, config.LogoutRedirect, http.StatusTemporaryRedirect)
+		if s.config.LogoutRedirect() != "" {
+			http.Redirect(w, r, s.config.LogoutRedirect(), http.StatusTemporaryRedirect)
 		} else {
 			http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		}
@@ -208,17 +198,17 @@ func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *ht
 	}
 
 	// Set the CSRF cookie
-	csrf := MakeCSRFCookie(r, nonce)
+	csrf := MakeCSRFCookie(r, nonce, s.config)
 	http.SetCookie(w, csrf)
 
-	if !config.InsecureCookie && r.Header.Get("X-Forwarded-Proto") != "https" {
+	if !s.config.InsecureCookie() && r.Header.Get("X-Forwarded-Proto") != "https" {
 		logger.Warn("You are using \"secure\" cookies for a request that was not " +
 			"received via https. You should either redirect to https or pass the " +
 			"\"insecure-cookie\" config option to permit cookies via http.")
 	}
 
 	// Forward them on
-	loginURL := p.GetLoginURL(redirectUri(r), MakeState(r, p, nonce))
+	loginURL := p.GetLoginURL(redirectUri(r, s.config), MakeState(r, p, nonce))
 	http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
 
 	logger.WithFields(logrus.Fields{
