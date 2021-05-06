@@ -29,6 +29,7 @@ type Provider interface {
 type User struct {
 	Email  string   `json:"email"`
 	Emails []string `json:"emails"`
+	Id     string   `json:"sub"`
 }
 
 // OAuthProvider is a provider using the oauth2 library

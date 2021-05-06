@@ -17,41 +17,41 @@ import (
 
 // ValidateCookie verifies that a cookie matches the expected format of:
 // Cookie = hash(secret, cookie domain, email, expires)|expires|email
-func ValidateCookie(r *http.Request, c *http.Cookie, config *Config) (string, error) {
+func ValidateCookie(r *http.Request, c *http.Cookie, config *Config) (string, string, error) {
 	parts := strings.Split(c.Value, "|")
 
-	if len(parts) != 3 {
-		return "", errors.New("invalid cookie format")
+	if len(parts) != 4 {
+		return "", "", errors.New("invalid cookie format")
 	}
 
 	mac, err := base64.URLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return "", errors.New("unable to decode cookie mac")
+		return "", "", errors.New("unable to decode cookie mac")
 	}
 
 	expectedSignature := cookieSignature(r, parts[2], parts[1], config)
 	expected, err := base64.URLEncoding.DecodeString(expectedSignature)
 	if err != nil {
-		return "", errors.New("unable to generate mac")
+		return "", "", errors.New("unable to generate mac")
 	}
 
 	// Valid token?
 	if !hmac.Equal(mac, expected) {
-		return "", errors.New("invalid cookie mac")
+		return "", "", errors.New("invalid cookie mac")
 	}
 
 	expires, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "", errors.New("unable to parse cookie expiry")
+		return "", "", errors.New("unable to parse cookie expiry")
 	}
 
 	// Has it expired?
 	if time.Unix(expires, 0).Before(time.Now()) {
-		return "", errors.New("cookie has expired")
+		return "", "", errors.New("cookie has expired")
 	}
 
 	// Looks valid
-	return parts[2], nil
+	return parts[2], parts[3], nil
 }
 
 // Utility methods
@@ -100,10 +100,10 @@ func useAuthDomain(r *http.Request, config *Config) (bool, string) {
 // Cookie methods
 
 // MakeCookie creates an auth cookie
-func MakeCookie(r *http.Request, email string, config *Config) *http.Cookie {
+func MakeCookie(r *http.Request, user User, config *Config) *http.Cookie {
 	expires := cookieExpiry(config)
-	mac := cookieSignature(r, email, fmt.Sprintf("%d", expires.Unix()), config)
-	value := fmt.Sprintf("%s|%d|%s", mac, expires.Unix(), email)
+	mac := cookieSignature(r, user.Email, fmt.Sprintf("%d", expires.Unix()), config)
+	value := fmt.Sprintf("%s|%d|%s|%s", mac, expires.Unix(), user.Email, user.Id)
 
 	return &http.Cookie{
 		Name:     config.CookieName(),
