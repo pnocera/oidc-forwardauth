@@ -93,11 +93,15 @@ func (s *Server) AuthHandler() http.HandlerFunc {
 		// 	http.Error(w, "Not authorized", http.StatusUnauthorized)
 		// 	return
 		// }
-
+		ctxid := r.Header.Get("ctxid")
+		if ctxid == "" {
+			ctxid = "default"
+		}
 		// Valid request
 		logger.Debug("Allowing valid request")
 		w.Header().Set("X-Forwarded-User", email)
 		w.Header().Set("X-Forwarded-User-Id", id)
+		w.Header().Set("X-Forwarded-User-Ctx", ctxid)
 		w.WriteHeader(200)
 	}
 }
