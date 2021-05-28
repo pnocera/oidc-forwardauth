@@ -41,4 +41,4 @@ Any additional information goes here
 
 - [@pnocera](https://www.github.com/pnocera)
 
-  
+  snyk container test scratch --file=Dockerfile
