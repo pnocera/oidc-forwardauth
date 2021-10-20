@@ -30,7 +30,7 @@ func (o *OIDC) Setup(config *Config) error {
 
 	var err error
 	o.ctx = context.Background()
-
+	log.Println("Setup Issuer url :", config.IssuerUrl())
 	// Try to initiate provider
 	o.provider, err = oidc.NewProvider(o.ctx, config.IssuerUrl())
 	if err != nil {
@@ -42,9 +42,8 @@ func (o *OIDC) Setup(config *Config) error {
 		ClientID:     config.ClientID(),
 		ClientSecret: config.ClientSecret(),
 		Endpoint:     o.provider.Endpoint(),
-		//openid profile offline_access https://docrender.onmicrosoft.com/docrender/demo.read
 		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: []string{oidc.ScopeOpenID, "profile", "offline_access", "https://docrender.onmicrosoft.com/docrender/demo.read"},
+		Scopes: []string{oidc.ScopeOpenID, "profile", "offline_access", "https://gcidocfactory.onmicrosoft.com/docfactory/demo.read"},
 	}
 
 	// Create OIDC verifier
@@ -81,6 +80,7 @@ func (o *OIDC) ExchangeCode(redirectURI, code string) (string, error) {
 func (o *OIDC) GetUser(token string) (User, error) {
 	var user User
 
+	log.Println("b2c token", token)
 	// Parse & Verify ID Token
 	idToken, err := o.verifier.Verify(o.ctx, token)
 	if err != nil {

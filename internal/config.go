@@ -11,8 +11,8 @@ import (
 
 // Config holds the runtime application config
 type Config struct {
-	v         *viper.Viper
-	Providers Providers
+	v *viper.Viper
+	//Providers Providers
 }
 
 // NewConfig creates a new global config, parsed from command arguments
@@ -98,11 +98,11 @@ func (c *Config) Lifetime() time.Duration {
 
 }
 
-func (c *Config) Provider() *OIDC {
-	var oidc = &c.Providers.OIDC
-	oidc.Setup(c)
-	return oidc
-}
+// func (c *Config) Provider() *OIDC {
+// 	var oidc = &c.Providers.OIDC
+// 	oidc.Setup(c)
+// 	return oidc
+// }
 
 func (c *Config) LogoutRedirect() string {
 	return c.v.GetString("LOGOUT_REDIRECT")

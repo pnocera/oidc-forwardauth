@@ -58,9 +58,19 @@ func (s *Server) AllowHandler(rule string) http.HandlerFunc {
 	}
 }
 
+func (s *Server) Provider() *OIDC {
+	var oidc = &OIDC{}
+	err := oidc.Setup(s.config)
+	if err != nil {
+		log.Println("Provider error", err)
+	}
+	return oidc
+}
+
 // AuthHandler Authenticates requests
 func (s *Server) AuthHandler() http.HandlerFunc {
-	p := s.config.Provider()
+
+	p := s.Provider()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Logging setup
@@ -142,13 +152,17 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		}
 
 		// Get provider
-		p := s.config.Provider()
+		p := s.Provider()
 
 		// Clear CSRF cookie
 		http.SetCookie(w, ClearCSRFCookie(r, c, s.config))
 
 		// Exchange code for token
-		token, err := p.ExchangeCode(redirectUri(r, s.config), r.URL.Query().Get("code"))
+		redir := redirectUri(r, s.config)
+		logger.Infoln(redir)
+		vcode := r.URL.Query().Get("code")
+		logger.Infoln(vcode)
+		token, err := p.ExchangeCode(redir, vcode)
 		if err != nil {
 			logger.WithField("error", err).Error("Code exchange failed with provider")
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
